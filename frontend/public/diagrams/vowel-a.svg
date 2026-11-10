@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 200 124" role="img" aria-label="ㅓ 입모양: 쉬는 입에서 세로로 중간만큼 벌어짐">
+          <defs>
+            <radialGradient id="skinGL" cx="50%" cy="45%" r="75%"><stop offset="0%" stop-color="#F8DACB"></stop><stop offset="100%" stop-color="#E6AF9A"></stop></radialGradient>
+            <linearGradient id="lipG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#C2606A"></stop><stop offset="48%" stop-color="#A9434F"></stop><stop offset="100%" stop-color="#D4797F"></stop></linearGradient>
+            <radialGradient id="mouthG" cx="50%" cy="35%" r="70%"><stop offset="0%" stop-color="#6B2530"></stop><stop offset="100%" stop-color="#240A0F"></stop></radialGradient>
+            <clipPath id="{{L.clipId}}"><path d="{{L.inner}}"></path></clipPath>
+          </defs>
+          <rect width="200" height="124" fill="url(#skinGL)"></rect>
+          <ellipse cx="100" cy="{{L.shY}}" rx="{{L.shRx}}" ry="5" fill="#C98E7B" opacity="0.45"></ellipse>
+          <path d="{{L.outer}}" fill="url(#lipG)"></path>
+          <path d="{{L.outer}}" fill="none" stroke="#9C3B47" stroke-width="0.8" opacity="0.6"></path>
+          <path d="{{L.inner}}" fill="url(#mouthG)"></path>
+          <g clip-path="{{L.clipUrl}}">
+            <ellipse cx="100" cy="{{L.tgY}}" rx="{{L.tgRx}}" ry="{{L.tgRy}}" fill="#C95A63"></ellipse>
+            <rect x="{{L.tx}}" y="{{L.ty}}" width="{{L.tw}}" height="{{L.th}}" rx="2" fill="#F6F1EA"></rect>
+            <path d="{{L.tLines}}" stroke="#D8CEC2" stroke-width="1"></path>
+            <rect x="{{L.tx}}" y="{{L.lty}}" width="{{L.tw}}" height="{{L.lth}}" rx="2" fill="#EDE6DC"></rect>
+          </g>
+          <path d="{{L.inner}}" fill="none" stroke="#6E2630" stroke-width="1.4"></path>
+          <ellipse cx="100" cy="{{L.glY}}" rx="{{L.glRx}}" ry="2.8" fill="#FFFFFF" opacity="0.4"></ellipse>
+          <ellipse cx="{{L.guL}}" cy="{{L.guY}}" rx="{{L.guRx}}" ry="1.6" fill="#FFFFFF" opacity="0.28"></ellipse>
+          <ellipse cx="{{L.guR}}" cy="{{L.guY}}" rx="{{L.guRx}}" ry="1.6" fill="#FFFFFF" opacity="0.28"></ellipse>
+        </svg>

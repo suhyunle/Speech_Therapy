@@ -1,0 +1,73 @@
+# 말랑말랑 전체 실행: docker compose --env-file .env up --build
+# 필요한 값은 .env.example 을 복사해서 채운다 (RECORDING_KEY, JWT_SECRET, POSTGRES_PASSWORD)
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: malang
+      POSTGRES_USER: malang
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes: [db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U malang -d malang"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://malang:${POSTGRES_PASSWORD}@db:5432/malang?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      RECORDING_KEY: ${RECORDING_KEY:?set RECORDING_KEY}
+      STORAGE_DIR: /data/storage
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      ADMIN_LOGIN_ID: ${ADMIN_LOGIN_ID:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      OAUTH_REDIRECT_BASE: ${OAUTH_REDIRECT_BASE:-http://localhost:3000/auth/callback}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:hello@malangmalang.app}
+      PORT: 4000
+    volumes: [recordings:/data/storage]
+    ports: ["4000:4000"]
+
+  worker:
+    build: ./analyzer
+    depends_on:
+      api: { condition: service_started }
+    environment:
+      DATABASE_URL: postgresql://malang:${POSTGRES_PASSWORD}@db:5432/malang
+      REDIS_URL: redis://redis:6379
+      RECORDING_KEY: ${RECORDING_KEY}
+      STORAGE_DIR: /data/storage
+      ASR_THREADS: 2
+    volumes: [recordings:/data/storage:ro]
+    deploy:
+      replicas: 1
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:4000/api}
+    depends_on: [api]
+    ports: ["3000:3000"]
+
+volumes:
+  db-data:
+  recordings:

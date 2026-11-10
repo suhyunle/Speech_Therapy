@@ -1,0 +1,465 @@
+// 말랑말랑 데이터 모델 — docs/database-erd.md 참고
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  LEARNER
+  ADMIN
+}
+
+enum AuthProvider {
+  KAKAO
+  GOOGLE
+}
+
+enum ConsentType {
+  TERMS
+  PRIVACY
+  VOICE_RECORDING
+  MODEL_TRAINING
+  RESEARCH
+  GUARDIAN
+}
+
+enum SoundKind {
+  CONSONANT
+  VOWEL
+  DIPHTHONG
+}
+
+enum ItemKind {
+  SYLLABLE
+  WORD
+  SENTENCE
+  PARAGRAPH
+}
+
+enum ItemStatus {
+  DRAFT
+  REVIEWED
+}
+
+enum AttemptContext {
+  MIC_CHECK
+  PLACEMENT
+  PRACTICE
+  BASELINE
+  WEEKLY
+  REVIEW
+  EXERCISE
+}
+
+enum AttemptStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  ISSUE
+  FAILED
+}
+
+enum SoundState {
+  LOCKED
+  LEARNING
+  LEARNED
+  ALREADY_GOOD
+}
+
+enum FontSize {
+  NORMAL
+  LARGE
+}
+
+enum ListenerGroup {
+  FAMILY
+  FRIEND
+  TEACHER
+  STRANGER
+}
+
+enum Familiarity {
+  FIRST
+  SOMETIMES
+  OFTEN
+}
+
+enum ScriptStatus {
+  EXTRACTING
+  READY
+  FAILED
+}
+
+enum RunStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum Feeling {
+  EASY
+  OK
+  HARD
+  TIRED
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  loginId      String?   @unique @db.VarChar(20)
+  passwordHash String?
+  name         String    @db.VarChar(30)
+  role         Role      @default(LEARNER)
+  isGuest      Boolean   @default(false)
+  birthYear    Int?
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  // 기준 목소리 (MicCheck "아——" 3초에서 워커가 잰 값)
+  baseline     Json?
+  // 내 목소리에 맞추기: 내 녹음에서 계산한 개인 기준 (모음 위치·바람 높이)
+  calibration  Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  identities    Identity[]
+  refreshTokens RefreshToken[]
+  settings      Settings?
+  consents      Consent[]
+  recordings    Recording[]
+  attempts      Attempt[]
+  placements    PlacementSession[]
+  soundProgress SoundProgress[]
+  dailySessions DailySession[]
+  streak        Streak?
+  diaryEntries  DiaryEntry[]
+  listenLinks   ListenLink[]
+  reports       Report[]
+  reviewedItems LessonItem[] @relation("ItemReviewer")
+  pushSubs      PushSubscription[]
+  scriptDocs    ScriptDoc[]
+  scriptRuns    ScriptRun[]
+}
+
+model Identity {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  provider       AuthProvider
+  providerUserId String
+  email          String?
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  family    String    @db.Uuid
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Settings {
+  userId          String   @id @db.Uuid
+  dailyGoal       Int      @default(5)
+  reminderEnabled Boolean  @default(false)
+  reminderTime    String?  @db.VarChar(5) // "20:00"
+  visualAlert     Boolean  @default(true)
+  haptics         Boolean  @default(true)
+  fontSize        FontSize @default(NORMAL)
+  retentionDays   Int      @default(90) // 0 = 내가 지울 때까지
+  personalModel   Boolean  @default(false)
+  researchMode    Boolean  @default(false)
+  researchAudio   Boolean  @default(false)
+  irbNumber       String?  @db.VarChar(60)
+  onboardedAt     DateTime?
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Consent {
+  id              String      @id @default(uuid()) @db.Uuid
+  userId          String      @db.Uuid
+  type            ConsentType
+  version         String      @db.VarChar(20)
+  granted         Boolean
+  guardianName    String?     @db.VarChar(30)
+  guardianContact String?     @db.VarChar(100)
+  createdAt       DateTime    @default(now())
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model Sound {
+  id          String     @id @default(uuid()) @db.Uuid
+  symbol      String     @unique @db.VarChar(4)
+  kind        SoundKind
+  groupKey    String     @db.VarChar(20) // 연습 순서 묶음: vowel, diphthong, s, g, ...
+  orderIndex  Int
+  place       String     // 소리 나는 곳
+  manner      String     // 내는 방법
+  voicing     String     // 목 떨림
+  cue         String     // "스"
+  guide       Json       // 단계 설명, 비슷한 소리 비교
+  progress    SoundProgress[]
+}
+
+model LessonItem {
+  id            String     @id @default(uuid()) @db.Uuid
+  kind          ItemKind
+  text          String     @db.VarChar(500)
+  pronunciation String     @db.VarChar(500) // 표준 발음 (한글 표기)
+  targetSounds  String[]   // 이 문항이 보는 소리
+  note          String?    // "ㄱ 첫소리 · ㅇ 받침"
+  placement     Boolean    @default(false) // 첫 진단 문항
+  placementOrder Int?
+  baselineFor   String?    @db.VarChar(4) // 이 소리의 기초선 고정 단어
+  intonation    String?    @db.VarChar(4) // "down" | "up"
+  exercise      String?    @db.VarChar(20) // forward | endclear | intonation | timing | hiss
+  difficulty    Int        @default(1)
+  status        ItemStatus @default(DRAFT)
+  source        String?
+  reviewedById  String?    @db.Uuid
+  reviewedAt    DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  reviewedBy    User?      @relation("ItemReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  attempts      Attempt[]
+
+  @@index([kind])
+  @@index([placement])
+}
+
+model Recording {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  storageKey String    @unique
+  durationMs Int
+  sampleRate Int
+  sizeBytes  Int
+  device     String?   @db.VarChar(200)
+  expiresAt  DateTime
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts   Attempt[]
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PlacementSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  summary    Json?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts   Attempt[]
+
+  @@index([userId])
+}
+
+model Attempt {
+  id                 String         @id @default(uuid()) @db.Uuid
+  userId             String         @db.Uuid
+  itemId             String?        @db.Uuid
+  targetText         String         @db.VarChar(500)
+  targetPronunciation String        @db.VarChar(500)
+  recordingId        String?        @db.Uuid
+  placementSessionId String?        @db.Uuid
+  context            AttemptContext
+  soundSymbol        String?        @db.VarChar(4) // 연습 중이던 소리
+  status             AttemptStatus  @default(QUEUED)
+  issue              String?        @db.VarChar(30)
+  heard              String?        @db.VarChar(500)
+  passed             Boolean?
+  result             Json?
+  modelVersion       String?        @db.VarChar(80)
+  error              String?
+  createdAt          DateTime       @default(now())
+  analyzedAt         DateTime?
+  appliedAt          DateTime? // 진도·오늘 기록에 반영한 시각 (한 번만 반영)
+  clientId           String?        @db.VarChar(64) // 오프라인 보관 후 다시 올릴 때 중복 방지
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item               LessonItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  recording          Recording?     @relation(fields: [recordingId], references: [id], onDelete: SetNull)
+  placementSession   PlacementSession? @relation(fields: [placementSessionId], references: [id], onDelete: Cascade)
+  listenItems        ListenLinkItem[]
+  reports            Report[]
+
+  @@unique([userId, clientId])
+  @@index([userId, createdAt])
+  @@index([userId, soundSymbol])
+  @@index([status])
+}
+
+model SoundProgress {
+  userId           String     @db.Uuid
+  soundId          String     @db.Uuid
+  state            SoundState @default(LOCKED)
+  placementResult  Json?      // { syllable: bool|null, word: bool|null, sentence: bool|null }
+  attempts         Int        @default(0)
+  passes           Int        @default(0)
+  consecutiveFails Int        @default(0)
+  baselineDoneAt   DateTime?
+  weeklyDoneAt     DateTime?
+  lastPracticedAt  DateTime?
+  updatedAt        DateTime   @updatedAt
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sound            Sound      @relation(fields: [soundId], references: [id], onDelete: Cascade)
+
+  @@id([userId, soundId])
+}
+
+model DailySession {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  date           String    @db.VarChar(10) // YYYY-MM-DD (Asia/Seoul)
+  goal           Int
+  completedCount Int       @default(0)
+  recordingCount Int       @default(0)
+  completedAt    DateTime?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model Streak {
+  userId   String  @id @db.Uuid
+  current  Int     @default(0)
+  best     Int     @default(0)
+  lastDate String? @db.VarChar(10)
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DiaryEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  date      String   @db.VarChar(10)
+  feeling   Feeling?
+  note      String?  @db.VarChar(300)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model ListenLink {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  code      String        @unique @db.VarChar(32)
+  group     ListenerGroup
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     ListenLinkItem[]
+
+  @@index([userId])
+}
+
+model ListenLinkItem {
+  id        String         @id @default(uuid()) @db.Uuid
+  linkId    String         @db.Uuid
+  attemptId String         @db.Uuid
+  order     Int
+  link      ListenLink     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  attempt   Attempt        @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  answers   ListenAnswer[]
+
+  @@unique([linkId, order])
+}
+
+model ListenAnswer {
+  id          String         @id @default(uuid()) @db.Uuid
+  linkItemId  String         @db.Uuid
+  answerText  String?        @db.VarChar(500)
+  unsure      Boolean        @default(false)
+  familiarity Familiarity
+  listenerKey String         @db.VarChar(40) // 듣는 사람 한 명의 세션 (이름·연락처 없음)
+  result      Json?
+  createdAt   DateTime       @default(now())
+  linkItem    ListenLinkItem @relation(fields: [linkItemId], references: [id], onDelete: Cascade)
+
+  @@index([linkItemId])
+}
+
+model Report {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  attemptId String   @db.Uuid
+  reason    String   @db.VarChar(300)
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt   Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  lastSent  String?  @db.VarChar(10) // 마지막으로 보낸 날짜 (하루 한 번)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model NewsletterSignup {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique @db.VarChar(200)
+  createdAt DateTime @default(now())
+}
+
+/// 내 글로 연습: 올린 발표자료·원고
+model ScriptDoc {
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String       @db.Uuid
+  title      String       @db.VarChar(200)
+  sourceType String       @db.VarChar(10) // pptx | pdf | image | text
+  storageKey String?      // 원본 파일 (암호화, 글을 뽑은 뒤 지움)
+  status     ScriptStatus @default(EXTRACTING)
+  slides     Json?        // [{ n, text }]
+  charCount  Int          @default(0)
+  error      String?
+  createdAt  DateTime     @default(now())
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runs       ScriptRun[]
+
+  @@index([userId])
+}
+
+model ScriptRun {
+  id          String    @id @default(uuid()) @db.Uuid
+  docId       String    @db.Uuid
+  userId      String    @db.Uuid
+  slideFrom   Int
+  slideTo     Int
+  freeSpeech  Boolean   @default(true) // 내 말로 풀어 말해도 괜찮아요
+  storageKey  String?
+  durationMs  Int       @default(0)
+  status      RunStatus @default(QUEUED)
+  result      Json?
+  error       String?
+  createdAt   DateTime  @default(now())
+  analyzedAt  DateTime?
+  doc         ScriptDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

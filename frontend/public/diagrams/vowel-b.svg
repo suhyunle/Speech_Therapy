@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 200 124" role="img" aria-label="ㅗ 입모양: 입술을 동그랗게 앞으로">
+          <defs>
+            <radialGradient id="skinGO" cx="50%" cy="45%" r="75%"><stop offset="0%" stop-color="#F8DACB"></stop><stop offset="100%" stop-color="#E6AF9A"></stop></radialGradient>
+            <linearGradient id="lipG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#C2606A"></stop><stop offset="48%" stop-color="#A9434F"></stop><stop offset="100%" stop-color="#D4797F"></stop></linearGradient>
+            <radialGradient id="mouthG" cx="50%" cy="35%" r="70%"><stop offset="0%" stop-color="#6B2530"></stop><stop offset="100%" stop-color="#240A0F"></stop></radialGradient>
+            <clipPath id="{{O.clipId}}"><path d="{{O.inner}}"></path></clipPath>
+          </defs>
+          <rect width="200" height="124" fill="url(#skinGO)"></rect>
+          <ellipse cx="100" cy="{{O.shY}}" rx="{{O.shRx}}" ry="5" fill="#C98E7B" opacity="0.45"></ellipse>
+          <path d="{{O.outer}}" fill="url(#lipG)"></path>
+          <path d="{{O.outer}}" fill="none" stroke="#9C3B47" stroke-width="0.8" opacity="0.6"></path>
+          <path d="{{O.inner}}" fill="url(#mouthG)"></path>
+          <g clip-path="{{O.clipUrl}}">
+            <ellipse cx="100" cy="{{O.tgY}}" rx="{{O.tgRx}}" ry="{{O.tgRy}}" fill="#C95A63"></ellipse>
+            <rect x="{{O.tx}}" y="{{O.ty}}" width="{{O.tw}}" height="{{O.th}}" rx="2" fill="#F6F1EA"></rect>
+            <path d="{{O.tLines}}" stroke="#D8CEC2" stroke-width="1"></path>
+            <rect x="{{O.tx}}" y="{{O.lty}}" width="{{O.tw}}" height="{{O.lth}}" rx="2" fill="#EDE6DC"></rect>
+          </g>
+          <path d="{{O.inner}}" fill="none" stroke="#6E2630" stroke-width="1.4"></path>
+          <ellipse cx="100" cy="{{O.glY}}" rx="{{O.glRx}}" ry="2.8" fill="#FFFFFF" opacity="0.4"></ellipse>
+          <ellipse cx="{{O.guL}}" cy="{{O.guY}}" rx="{{O.guRx}}" ry="1.6" fill="#FFFFFF" opacity="0.28"></ellipse>
+          <ellipse cx="{{O.guR}}" cy="{{O.guY}}" rx="{{O.guRx}}" ry="1.6" fill="#FFFFFF" opacity="0.28"></ellipse>
+        </svg>
