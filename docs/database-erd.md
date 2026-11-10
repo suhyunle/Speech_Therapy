@@ -28,6 +28,7 @@ erDiagram
   User ||--o{ PushSubscription : "웹 푸시"
   User ||--o{ ScriptDoc : "내 글로 연습 원고"
   ScriptDoc ||--o{ ScriptRun : "읽은 녹음 · 분석"
+  User ||--o{ EmailToken : "이메일 인증 · 재설정 링크"
 ```
 
 ## 표 설명
@@ -53,9 +54,10 @@ erDiagram
 | PushSubscription | 기기별 웹 푸시 구독(endpoint·키) | Settings 알림 |
 | NewsletterSignup | 랜딩 출시 소식 신청 이메일 | Landing |
 | ScriptDoc | 올린 원고(pptx·pdf·사진·글), 슬라이드별 글, 글 뽑기 상태 | MyScript |
+| EmailToken | 이메일 인증·비밀번호 재설정 링크(토큰은 해시만, 만료·사용 시각) | — (계정 되찾기) |
 | ScriptRun | 원고를 읽은 녹음(암호화) · 슬라이드 범위 · 분석 결과 JSON | MyScriptResult |
 
-추가 열: `User.calibration`(내 목소리에 맞춘 모음 목표), `Settings.personalModel · researchMode · researchAudio · irbNumber · retentionDays(0=내가 지울 때까지)`,
+추가 열: `User.email · emailVerifiedAt`(인증한 주소만 재설정에 씀), `User.calibration`(내 목소리에 맞춘 모음 목표), `Settings.personalModel · researchMode · researchAudio · irbNumber · retentionDays(0=내가 지울 때까지)`,
 `LessonItem.exercise · intonation · baselineFor`, `Attempt.clientId`(오프라인 재전송 중복 방지, `(userId, clientId)` 유니크) · `appliedAt`,
 `SoundProgress.baselineDoneAt · weeklyDoneAt`. 녹음 맥락(`Attempt.context`): MIC_CHECK · PLACEMENT · PRACTICE · BASELINE · WEEKLY · REVIEW · EXERCISE.
 

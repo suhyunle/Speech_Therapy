@@ -11,3 +11,4 @@ storage/
 models/
 .logs/
 *.tsbuildinfo
+frontend/public/precache.json

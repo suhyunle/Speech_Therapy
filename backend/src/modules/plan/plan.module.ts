@@ -46,7 +46,7 @@ export class PlanService {
       this.prisma.sound.findMany({ orderBy: { orderIndex: 'asc' } }),
       this.prisma.soundProgress.findMany({ where: { userId } }),
       this.prisma.streak.findUnique({ where: { userId } }),
-      this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, isGuest: true, baseline: true } }),
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, isGuest: true, baseline: true, calibration: true } }),
     ]);
     const stateOf = new Map(progress.map((p) => [p.soundId, p]));
     const path = sounds.map((s) => ({
@@ -125,6 +125,8 @@ export class PlanService {
       hasBaseline: !!user.baseline,
       // 모음 점의 기준 평균(성인 여/남 대략값): 처음 기준 목소리 높이로 고른다 (분석기 audio.vowel_set 과 같은 규칙)
       vowelSet: ((user.baseline as any)?.pitchHz && (user.baseline as any).pitchHz < 165 ? 'm' : 'f') as 'f' | 'm',
+      // 내 목소리에 맞추기: 맞게 낸 모음으로 옮긴 목표 칸 (없으면 null → 기본 평균)
+      vowelTargets: ((user.calibration as any)?.vowels ?? null) as Record<string, [number, number]> | null,
       goal,
       completed: items.filter((i) => i.done).length,
       todayRecordings: todayRow?.recordingCount ?? 0,

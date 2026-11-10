@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { AppShell, Button, Card, ErrorState, Loading, Sheet, cx } from '@/components/ui';
 import { RetentionPicker, Toggle } from '@/features/settings/Toggle';
 import { errorText } from '@/services/api';
-import { accountApi, authApi, meApi, notifyApi } from '@/services/endpoints';
+import { accountApi, authApi, emailApi, meApi, notifyApi } from '@/services/endpoints';
 import { disablePush, enablePush, pushSupported } from '@/services/push';
 import { useAuth } from '@/stores/auth';
 import type { Settings } from '@/types/api';
@@ -198,6 +198,7 @@ export default function SettingsPage() {
                     </div>
                   );
                 })}
+                <EmailRow current={ids.data?.email ?? null} verified={!!ids.data?.emailVerified} enabled={!!providers.data?.email} onSent={(e) => setMsg(`${e}로 인증 메일을 보냈어요. 메일의 링크를 누르면 끝나요.`)} />
                 <Link href="/settings/account" className="text-sm font-bold text-brand-dark">
                   {ids.data?.loginId ? '비밀번호 바꾸기' : '아이디·비밀번호 만들기'} ›
                 </Link>
@@ -238,5 +239,56 @@ export default function SettingsPage() {
         </div>
       </Sheet>
     </AppShell>
+  );
+}
+
+/** 이메일 등록 · 인증 (비밀번호를 잊었을 때 재설정 링크를 받는 곳) */
+function EmailRow({ current, verified, enabled, onSent }: { current: string | null; verified: boolean; enabled: boolean; onSent: (email: string) => void }) {
+  const [edit, setEdit] = useState(false);
+  const [v, setV] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await emailApi.set(v);
+      setEdit(false);
+      onSent(r.email);
+    } catch (e) {
+      setErr(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!enabled)
+    return (
+      <div className="flex min-h-[48px] items-center justify-between rounded-xl bg-bg px-3 text-sm">
+        <span>이메일</span>
+        <span className="text-xs text-muted">서버 메일 설정 전</span>
+      </div>
+    );
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-bg p-3 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate">이메일{current ? ` · ${current}` : ''}</span>
+        {current && verified ? <span className="shrink-0 text-xs font-bold text-pass-text">인증됨</span> : current ? <span className="shrink-0 text-xs font-bold text-coral-ink">인증 전</span> : null}
+        {!edit && (
+          <button type="button" onClick={() => (setEdit(true), setV(current ?? ''))} className="min-h-[36px] shrink-0 rounded-lg bg-white px-3 text-xs font-bold text-brand-dark">
+            {current ? (verified ? '바꾸기' : '다시 보내기') : '등록하기'}
+          </button>
+        )}
+      </div>
+      {edit && (
+        <form className="flex gap-2" onSubmit={(e) => (e.preventDefault(), void send())}>
+          <input type="email" value={v} onChange={(e) => setV(e.target.value)} placeholder="name@example.com" className="min-h-[44px] min-w-0 flex-1 rounded-xl border-2 border-line bg-white px-3 outline-none focus:border-brand" />
+          <button type="submit" disabled={busy || !v.includes('@')} className="min-h-[44px] shrink-0 rounded-xl bg-brand px-3 text-xs font-bold text-white disabled:bg-line2">
+            인증 메일 보내기
+          </button>
+        </form>
+      )}
+      {err && <span className="text-xs text-coral-ink">{err}</span>}
+      <span className="text-[11px] text-muted">비밀번호를 잊었을 때 이 메일로 재설정 링크를 보내요. 다른 곳에는 쓰지 않아요.</span>
+    </div>
   );
 }

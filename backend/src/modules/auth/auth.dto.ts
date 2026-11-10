@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export const LOGIN_ID_RULE = /^[a-z0-9_]{4,20}$/;
 export const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{8,64}$/;
@@ -68,6 +68,21 @@ export class ProviderParam {
 
 export class ChangePasswordDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64) current?: string;
+  @ApiProperty() @Matches(PASSWORD_RULE, { message: '비밀번호는 8자 이상, 영문과 숫자를 넣어요' }) next: string;
+  @ApiPropertyOptional() @IsOptional() @Matches(LOGIN_ID_RULE, { message: '아이디는 영문 소문자·숫자 4~20자로 만들어요' }) loginId?: string;
+}
+
+export class EmailDto {
+  @ApiProperty() @IsEmail({}, { message: '이메일 주소를 확인해 주세요' }) @MaxLength(254) email: string;
+}
+export class TokenDto {
+  @ApiProperty() @IsString() @MaxLength(100) token: string;
+}
+export class ForgotDto {
+  @ApiProperty({ description: '아이디 또는 인증한 이메일' }) @IsString() @MaxLength(254) identifier: string;
+}
+export class ResetPasswordDto {
+  @ApiProperty() @IsString() @MaxLength(100) token: string;
   @ApiProperty() @Matches(PASSWORD_RULE, { message: '비밀번호는 8자 이상, 영문과 숫자를 넣어요' }) next: string;
   @ApiPropertyOptional() @IsOptional() @Matches(LOGIN_ID_RULE, { message: '아이디는 영문 소문자·숫자 4~20자로 만들어요' }) loginId?: string;
 }

@@ -191,10 +191,10 @@ export class UsersService {
   /** 연결된 로그인 방법 */
   async identities(userId: string) {
     const [u, ids] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { loginId: true } }),
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { loginId: true, email: true, emailVerifiedAt: true } }),
       this.prisma.identity.findMany({ where: { userId }, select: { provider: true, email: true, createdAt: true } }),
     ]);
-    return { loginId: u.loginId, providers: ids };
+    return { loginId: u.loginId, email: u.email, emailVerified: !!u.emailVerifiedAt, providers: ids };
   }
 
   async deleteAccount(userId: string) {

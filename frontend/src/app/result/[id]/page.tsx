@@ -138,6 +138,14 @@ function Result() {
             <span className="text-[11px] text-muted">위: 정답 · 아래: 내 소리</span>
           </div>
           <Grid ops={r.phonemes.ops} />
+          {r.acousticChecks && r.acousticChecks.length > 0 && (
+            <p className="rounded-xl bg-tint px-3 py-2 text-xs leading-relaxed text-sub">
+              <b>소리를 직접 재 봤어요 · </b>
+              {r.acousticChecks[0].reason === 'no_hiss'
+                ? `받아쓰기는 ${r.acousticChecks.map((c) => c.symbol).join('·')}으로 들었지만, 녹음에 바람 소리가 거의 없었어요(${r.acousticChecks[0].hissSec}초). 막혀서 ㄷ처럼 났을 수 있어 맞다고 정하지 않았어요.`
+                : `받아쓰기는 ${r.acousticChecks.map((c) => c.symbol).join('·')}으로 들었지만, 바람 소리 중심이 ${r.acousticChecks[0].centroidKHz}kHz로 낮았어요(ㅅ 목표 6~8.5). ‘쉬’처럼 났을 수 있어 맞다고 정하지 않았어요.`}
+            </p>
+          )}
           {unsure.length > 0 && (
             <button type="button" onClick={() => setWhy(true)} className="self-start text-xs font-bold text-brand-dark">
               {unsure.map((o) => o.target?.symbol).join('·')}은 왜 ‘확실하지 않음’이에요? →
@@ -243,7 +251,10 @@ function Result() {
       </Sheet>
       <Sheet open={why} onClose={() => setWhy(false)} label="확실하지 않아요">
         <b className="font-jua text-[22px]">{unsure.map((o) => o.target?.symbol).join('·')}은 확실하지 않아요</b>
-        <p className="text-sm leading-relaxed text-sub">소리가 짧거나 애매하면 맞다·틀리다를 정하지 않아요. 틀렸다고 세지도 않아요.</p>
+        <p className="text-sm leading-relaxed text-sub">
+          {unsure.some((o) => o.reason) ? '받아쓰기와 녹음에서 직접 잰 바람 소리가 서로 맞지 않으면 맞다·틀리다를 정하지 않아요. ' : ''}
+          소리가 짧거나 애매하면 맞다·틀리다를 정하지 않아요. 틀렸다고 세지도 않아요.
+        </p>
         <div className="flex gap-2 text-xs">
           <span className="rounded-lg bg-pass px-2 py-1 font-bold text-white">확실 · 맞음</span>
           <span className="rounded-lg bg-coral px-2 py-1 font-bold">확실 · 다름</span>

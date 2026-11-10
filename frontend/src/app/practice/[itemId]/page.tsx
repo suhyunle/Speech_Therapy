@@ -8,6 +8,7 @@ import { Analyzing, HissMeter, IssueBox, LiveBars, MicButton, OfflineBox, useAtt
 import { Mouth, SHAPE_OF, useMouthClock } from '@/features/vowels/Mouth';
 import { VowelMap } from '@/features/vowels/VowelMap';
 import { CONSONANTS } from '@/utils/hangul';
+import { VOWEL_TARGETS } from '@/utils/lpc';
 import { errorText } from '@/services/api';
 import { contentApi, planApi } from '@/services/endpoints';
 import type { Attempt } from '@/types/api';
@@ -94,13 +95,13 @@ function Practice() {
             </div>
             {isVowel ? (
               <>
-                <VowelMap set={p?.vowelSet ?? 'f'} target={sound} live={recording ? flow.rec.vowel : null} trail={recording ? flow.rec.trail : []} point={!recording && vp ? vp : null} />
+                <VowelMap set={p?.vowelSet ?? 'f'} targets={p?.vowelTargets ? { ...VOWEL_TARGETS[p.vowelSet ?? 'f'], ...p.vowelTargets } : undefined} target={sound} live={recording ? flow.rec.vowel : null} trail={recording ? flow.rec.trail : []} point={!recording && vp ? vp : null} />
                 {vp && !recording && (
                   <span className="text-sm leading-relaxed text-sub">
                     {vp.nearest === sound ? `${sound} 칸 가까이 찍혔어요!` : `${vp.nearest} 쪽으로 조금 갔어요. ${sound === 'ㅓ' && vp.nearest === 'ㅗ' ? '입술 힘을 빼고 다시 해봐요.' : '입모양을 거울로 보고 다시 해봐요.'}`}
                   </span>
                 )}
-                <span className="text-[11px] text-muted">모음 지도의 점은 녹음에서 잰 소리 성분(포먼트)으로 찍어요. 점수 대신 위치만 보여드려요.</span>
+                <span className="text-[11px] text-muted">모음 지도의 점은 녹음에서 잰 소리 성분(포먼트)으로 찍어요. 점수 대신 위치만 보여드려요.{p?.vowelTargets ? ' 목표 칸은 내 목소리에 맞춘 위치예요.' : ''}</span>
               </>
             ) : (
               <LiveBars history={flow.rec.history} active={recording} />

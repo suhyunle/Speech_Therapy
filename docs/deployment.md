@@ -32,6 +32,8 @@ docker compose --env-file .env up --build
 - 보관 기간: 사용자 설정(기본 90일). 정책 확정 필요 (디자인 TechSpec: "[보관 기간 정책 입력]").
 - iOS 앱 출시 시 Apple 로그인 필요 (디자인 메모).
 - 웹 푸시: `npx web-push generate-vapid-keys` → `VAPID_PUBLIC_KEY` · `VAPID_PRIVATE_KEY` · `VAPID_SUBJECT(mailto:…)`. 비우면 알림 버튼이 ‘서버 설정 전’으로 보인다. 서비스 워커는 HTTPS에서만 등록된다.
+- 이메일: `SMTP_URL`(예: `smtps://아이디:비밀번호@smtp.example.com:465`) · `MAIL_FROM`. 비우면 이메일 인증·재설정이 ‘서버 설정 전’으로 보이고 간편 로그인 경로만 남는다. 메일 링크 주소는 `WEB_ORIGIN` 첫 값.
+- 오프라인: `npm run build`가 `public/precache.json`(화면·JS·CSS 목록)을 만든다. `next build`만 돌리면 미리 받기 없이 쓸 때만 저장된다.
 - 내 글로 연습: 워커 이미지에 `ffmpeg`(mp3·m4a 변환) · `tesseract-ocr-kor`(사진 OCR)가 들어 있어야 한다 (analyzer/Dockerfile).
 
 ## 마이그레이션

@@ -3,7 +3,7 @@
 - 기준 주소: `http://localhost:4000/api` · Swagger UI: `/api/docs` · OpenAPI JSON: [`openapi.json`](openapi.json) (실행 중인 서버에서 생성)
 - 인증: `Authorization: Bearer <accessToken>` (15분). 만료되면 `POST /auth/refresh`. SSE는 `?access_token=`.
 - 오류 형식: `{ "statusCode": 401, "message": "아이디 또는 비밀번호가 맞지 않아요", "code": "BAD_CREDENTIALS" }`
-- 엔드포인트 71개
+- 엔드포인트 83개
 
 | 메서드 | 경로 | 권한 | 하는 일 |
 |---|---|---|---|
@@ -14,6 +14,10 @@
 | `POST` | `/api/auth/refresh` | 공개 | 토큰 갱신 (회전 · 재사용 감지) |
 | `POST` | `/api/auth/logout` | 공개 | 로그아웃 |
 | `POST` | `/api/auth/password` | 로그인 | 비밀번호 바꾸기 (지금 비밀번호 확인, 간편 로그인 직후엔 생략) · 간편 로그인 계정은 아이디도 함께 만들기 · 다른 기기 로그인 끊김 |
+| `POST` | `/api/auth/email` | 로그인 | 이메일 등록·바꾸기 → 인증 메일 (24시간 링크) |
+| `POST` | `/api/auth/email/verify` | 공개 | 메일 링크의 토큰으로 이메일 인증 |
+| `POST` | `/api/auth/password/forgot` | 공개 | 아이디 또는 인증한 이메일 → 재설정 링크(30분, 한 번). 계정이 있는지는 알려주지 않음 |
+| `POST` | `/api/auth/password/reset` | 공개 | 토큰 + 새 비밀번호 → 바꾸고 다른 기기 로그아웃 |
 | `GET` | `/api/auth/me` | 로그인 | 내 정보 |
 | `GET` | `/api/auth/providers` | 공개 | 카카오·구글 사용 가능 여부 |
 | `GET` | `/api/auth/oauth/{provider}/url` | 공개 | OAuth 로그인 주소 |
@@ -115,3 +119,8 @@
 
 ## 오늘의 학습 `GET /plan/today` 추가 필드
 `warmup`(발성 1분 문항·했는지) · `baselineNeeded`(지금 소리 기초선 필요) · `weeklyDue`(일주일 체크할 소리) · `daysAway`(마지막 연습 뒤 쉰 날) · `learnedCount` · `vowelSet`(`f`|`m`, 모음 지도 기준 평균).
+
+## 소리 교차 확인 `result.acousticChecks`
+받아쓰기가 ㅅ·ㅆ을 맞게 들었어도 녹음의 바람 소리가 거의 없으면(`no_hiss`) 또는 중심이 4kHz보다 낮으면(`low_hiss`, ㅣ·ㅑ 등 앞은 제외) 해당 `ops[].type`을 `unsure`로 바꾸고 `ops[].reason`에 이유를 남긴다.
+`{ "symbol": "ㅅ", "syl": 0, "reason": "no_hiss", "hissSec": 0.0, "centroidKHz": null }`
+`GET /plan/today` 에 `vowelTargets`(내 목소리에 맞춘 모음 목표, 없으면 null). `GET /auth/providers` 에 `email`(메일 발송 가능). `GET /me/identities` 에 `email`·`emailVerified`.

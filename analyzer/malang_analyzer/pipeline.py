@@ -120,14 +120,27 @@ def analyze(
                 if o["target"] and o["target"]["syl"] in short and o["type"] == "sub":
                     o["type"] = "unsure"
             result["soundVerdicts"] = al.sound_verdicts(cmp["ops"], target_sounds)
+    # 소리를 직접 재서 받아쓰기 결과를 교차 확인 (받아쓰기가 아는 단어로 맞춰 적는 문제 완화)
+    if cmp:
+        checks = acoustic_checks(cmp["ops"], m.get("hiss"), target_pron)
+        if checks:
+            result["acousticChecks"] = checks
+            result["soundVerdicts"] = al.sound_verdicts(cmp["ops"], target_sounds)
+            verdicts = [v for v in result["soundVerdicts"].values() if v is not None]
+            if result["passed"] is not None:
+                result["passed"] = (bool(verdicts) and all(verdicts)) if target_sounds else all(o["type"] in ("same", "allowed") for o in cmp["ops"] if o["target"])
+                if target_sounds and not verdicts:
+                    result["passed"] = None
     if m.get("formants") and m["formants"].get("f1"):
         which = au.vowel_set(baseline)
         f1, f2 = m["formants"]["f1"], m["formants"]["f2"]
         goal = next((v for v in target_sounds if v in VOWEL_SOUND_TARGETS), vowels_in[0] if vowels_in else None)
-        targets = (calibration or {}).get("vowels") or au.VOWEL_TARGETS[which]
+        personal = (calibration or {}).get("vowels") or {}
+        # 내 목소리에 맞춘 모음은 그 모음만 바꾸고, 나머지는 기본 평균을 쓴다
+        targets = {**{k: list(v) for k, v in au.VOWEL_TARGETS[which].items()}, **{k: list(v) for k, v in personal.items()}}
         result["vowelPoint"] = {
-            "f1": f1, "f2": f2, "target": goal, "nearest": au.nearest_vowel(f1, f2, which),
-            "targets": {k: list(v) for k, v in targets.items()}, "set": "personal" if (calibration or {}).get("vowels") else which,
+            "f1": f1, "f2": f2, "target": goal, "nearest": nearest_in(f1, f2, targets),
+            "targets": targets, "set": "personal" if personal else which,
         }
 
     # ⑥ 피드백
@@ -204,4 +217,41 @@ def evaluate_exercise(kind, target_pron, m, sylls, region, x, baseline, intonati
         out["holdSec"] = m.get("durationSec")
     if kind == "hiss":
         out["hiss"] = m.get("hiss")
+    return out
+
+
+def nearest_in(f1: float, f2: float, targets: dict) -> str:
+    return min(targets, key=lambda k: ((f1 - targets[k][0]) / 150) ** 2 + ((f2 - targets[k][1]) / 400) ** 2)
+
+
+# ㅅ·ㅆ 바람 소리: 한 번에 적어도 이만큼은 새어 나와야 '바람이 있었다'고 본다
+HISS_MIN_SEC = 0.04
+# 바람 중심이 이보다 낮으면 혀가 넓게 닿아 '쉬'처럼 났을 수 있다 (ㅣ·ㅑ 등 앞에서는 원래 낮아져서 보지 않음)
+HISS_LOW_KHZ = 4.0
+PALATAL_VOWELS = set("ㅣㅑㅕㅛㅠㅒㅖㅟ")
+
+
+def acoustic_checks(ops: list[dict], hiss: dict | None, target_pron: str) -> list[dict]:
+    """받아쓰기가 ㅅ·ㅆ을 맞게 들었다고 해도, 녹음에 바람 소리가 거의 없거나 너무 낮으면 '같음'을 '확실하지 않음'으로 바꾼다.
+    소리를 틀렸다고 단정하지 않는다: 녹음 자체에서 잰 값이 받아쓰기와 맞지 않을 때 판정을 보류할 뿐이다."""
+    if not hiss:
+        return []
+    targets = [o for o in ops if o["target"] and o["target"]["symbol"] in HISS_SOUNDS and o["target"]["pos"] == "onset" and o["type"] in ("same", "allowed")]
+    if not targets:
+        return []
+    n_all = sum(1 for p in phonemes(target_pron) if p.symbol in HISS_SOUNDS and p.pos == "onset")
+    sec = hiss.get("hissSec") or 0.0
+    khz = hiss.get("centroidKHz")
+    vowels = {p.syl: p.symbol for p in phonemes(target_pron) if p.pos == "vowel"}
+    out = []
+    if sec < HISS_MIN_SEC * max(1, n_all) * 0.5:
+        reason = "no_hiss"
+    elif khz is not None and khz < HISS_LOW_KHZ and not any(vowels.get(o["target"]["syl"]) in PALATAL_VOWELS for o in targets):
+        reason = "low_hiss"
+    else:
+        return []
+    for o in targets:
+        o["type"] = "unsure"
+        o["reason"] = reason
+        out.append({"symbol": o["target"]["symbol"], "syl": o["target"]["syl"], "reason": reason, "hissSec": sec, "centroidKHz": khz})
     return out

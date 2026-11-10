@@ -2,14 +2,16 @@ import { Body, Controller, Get, HttpCode, Param, Post, Query, Req } from '@nestj
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthUser, CurrentUser, Public } from '../../common/auth';
-import { ChangePasswordDto, LoginDto, OAuthCallbackDto, ProviderParam, RefreshDto, SignUpDto } from './auth.dto';
+import { ChangePasswordDto, EmailDto, ForgotDto, LoginDto, OAuthCallbackDto, ProviderParam, RefreshDto, ResetPasswordDto, SignUpDto, TokenDto } from './auth.dto';
+import { MailService } from '../../common/mail.service';
+import { EmailService } from './email.service';
 import { AuthService } from './auth.service';
 import { OAuthService } from './oauth.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private auth: AuthService, private oauth: OAuthService) {}
+  constructor(private auth: AuthService, private oauth: OAuthService, private email: EmailService, private mail: MailService) {}
 
   @Public()
   @Get('check-id')
@@ -69,7 +71,38 @@ export class AuthController {
   @Public()
   @Get('providers')
   providers() {
-    return this.oauth.enabled();
+    return { ...this.oauth.enabled(), email: this.mail.enabled() };
+  }
+
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('email')
+  setEmail(@CurrentUser() user: AuthUser, @Body() dto: EmailDto) {
+    return this.email.requestVerify(user.id, dto.email);
+  }
+
+  @Public()
+  @HttpCode(200)
+  @Post('email/verify')
+  verifyEmail(@Body() dto: TokenDto) {
+    return this.email.verify(dto.token);
+  }
+
+  /** 비밀번호 찾기: 계정이 있든 없든 같은 응답 */
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('password/forgot')
+  forgot(@Body() dto: ForgotDto) {
+    return this.email.forgot(dto.identifier);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('password/reset')
+  reset(@Body() dto: ResetPasswordDto) {
+    return this.email.reset(dto.token, dto.next, dto.loginId);
   }
 
   @Public()

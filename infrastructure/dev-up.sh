@@ -39,7 +39,7 @@ ASR_MODEL_DIR="$MODEL" nohup .venv/bin/python -m malang_analyzer.worker >"$LOG/w
 
 # 3) 웹
 cd "$ROOT/frontend"
-npx next build >/dev/null
+npm run build >/dev/null
 cp -r .next/static .next/standalone/.next/ 2>/dev/null || true
 cp -r public .next/standalone/ 2>/dev/null || true
 nohup node .next/standalone/server.js >"$LOG/web.log" 2>&1 &

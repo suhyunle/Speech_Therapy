@@ -101,3 +101,28 @@ def test_sound_only_exercise_skips_text_compare():
     x = np.concatenate([gap(0.3), tone(150, 2.0), gap(0.3)])
     r = analyze(x, "음", "음", "SYLLABLE", [], None, 0, "forward", None)
     assert r["phonemes"] is None and "sound_only_exercise" in r["limits"] and r["exercise"]["kind"] == "forward"
+
+
+def test_acoustic_check_flags_missing_hiss():
+    from malang_analyzer.pipeline import acoustic_checks
+    ops = [{"target": {"symbol": "ㅅ", "pos": "onset", "syl": 0}, "got": {"symbol": "ㅅ", "pos": "onset", "syl": 0}, "type": "same"},
+           {"target": {"symbol": "ㅏ", "pos": "vowel", "syl": 0}, "got": {"symbol": "ㅏ", "pos": "vowel", "syl": 0}, "type": "same"}]
+    c = acoustic_checks(ops, {"centroidKHz": None, "hissSec": 0.0}, "사과")
+    assert c and c[0]["reason"] == "no_hiss" and ops[0]["type"] == "unsure" and ops[1]["type"] == "same"
+
+def test_acoustic_check_low_hiss_and_ok():
+    from malang_analyzer.pipeline import acoustic_checks
+    mk = lambda: [{"target": {"symbol": "ㅅ", "pos": "onset", "syl": 0}, "got": {"symbol": "ㅅ", "pos": "onset", "syl": 0}, "type": "same"}]
+    assert acoustic_checks(mk(), {"centroidKHz": 3.6, "hissSec": 0.15}, "사과")[0]["reason"] == "low_hiss"
+    assert acoustic_checks(mk(), {"centroidKHz": 3.6, "hissSec": 0.15}, "시계") == []  # ㅣ 앞은 원래 낮아짐
+    assert acoustic_checks(mk(), {"centroidKHz": 6.8, "hissSec": 0.15}, "사과") == []
+
+def test_hiss_meter_on_real_noise():
+    rng = np.random.default_rng(1)
+    noise = rng.normal(0, 0.1, int(0.3 * SR)).astype(np.float32)
+    # 6kHz 위만 남긴 바람 소리
+    spec = np.fft.rfft(noise); f = np.fft.rfftfreq(len(noise), 1 / SR); spec[f < 5500] = 0
+    hiss = np.fft.irfft(spec, len(noise)).astype(np.float32) * 3
+    x = np.concatenate([gap(0.3), hiss, tone(200, 0.3), gap(0.3)])
+    h = au.hiss_meter(x)
+    assert h["hissSec"] >= 0.2 and h["centroidKHz"] > 6

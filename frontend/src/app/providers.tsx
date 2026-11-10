@@ -3,19 +3,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { attemptsApi } from '@/services/endpoints';
+import { attemptsApi, contentApi, trainingApi } from '@/services/endpoints';
 import { notifyQueueChanged, offlineQueue } from '@/utils/offline';
 import { HttpError } from '@/services/api';
 import { useAuth } from '@/stores/auth';
 
-const PUBLIC = ['/', '/welcome', '/tutorial', '/login', '/login/id', '/signup', '/auth/callback', '/l/', '/privacy', '/terms', '/offline', '/forgot'];
+const PUBLIC = ['/', '/welcome', '/tutorial', '/login', '/login/id', '/signup', '/auth/callback', '/l/', '/privacy', '/terms', '/offline', '/forgot', '/verify-email', '/reset-password'];
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { staleTime: 15_000, retry: (n, e) => !(e instanceof HttpError && e.status < 500 && e.status > 0) && n < 2, refetchOnWindowFocus: false },
+          queries: { staleTime: 15_000, retry: (n, e) => !(e instanceof HttpError && e.status < 500 && e.status > 0) && n < 2, refetchOnWindowFocus: false, networkMode: 'offlineFirst' },
         },
       }),
   );
@@ -65,6 +65,24 @@ function OfflineManager() {
       void qc.invalidateQueries({ queryKey: ['plan'] });
       notifyQueueChanged();
     };
+    // 인터넷 없이도 소리 배우기·소리 지도가 열리게: 하루 한 번 소리 40개 설명을 받아 둔다 (서비스 워커가 저장)
+    const warm = async () => {
+      if (!navigator.onLine || !useAuth.getState().accessToken || !('serviceWorker' in navigator)) return;
+      // 서비스 워커가 이 화면을 맡기 전에 받으면 저장되지 않는다 → 맡을 때까지 기다린다
+      if (!navigator.serviceWorker.controller) {
+        await new Promise<void>((ok) => navigator.serviceWorker.addEventListener('controllerchange', () => ok(), { once: true }));
+      }
+      const day = new Date().toISOString().slice(0, 10);
+      try {
+        if (localStorage.getItem('malang-warm') === day) return;
+        const list = await contentApi.sounds();
+        for (const s of list) await contentApi.sound(s.symbol).catch(() => undefined);
+        await trainingApi.exercises().catch(() => undefined);
+        localStorage.setItem('malang-warm', day);
+      } catch {
+        /* 다음에 다시 */
+      }
+    };
     const on = () => (setOnline(true), void flush());
     const off = () => setOnline(false);
     setOnline(navigator.onLine);
@@ -73,6 +91,7 @@ function OfflineManager() {
     window.addEventListener('malang-offline', count);
     void count();
     void flush();
+    void warm();
     const iv = setInterval(flush, 30_000);
     return () => (window.removeEventListener('online', on), window.removeEventListener('offline', off), window.removeEventListener('malang-offline', count), clearInterval(iv));
   }, [qc, token]);

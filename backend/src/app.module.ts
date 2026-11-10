@@ -12,6 +12,8 @@ import { AttemptsModule } from './modules/attempts/attempts.module';
 import { AuthController } from './modules/auth/auth.controller';
 import { AuthService } from './modules/auth/auth.service';
 import { OAuthService } from './modules/auth/oauth.service';
+import { EmailService } from './modules/auth/email.service';
+import { MailService } from './common/mail.service';
 import { ContentModule } from './modules/content/content.module';
 import { DiaryModule } from './modules/diary/diary.module';
 import { ListenModule } from './modules/listen/listen.module';
@@ -72,6 +74,8 @@ export class RetentionJob implements OnModuleInit, OnModuleDestroy {
   providers: [
     AuthService,
     OAuthService,
+    EmailService,
+    MailService,
     RetentionJob,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },

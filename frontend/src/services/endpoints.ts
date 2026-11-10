@@ -19,7 +19,7 @@ export const authApi = {
   login: (loginId: string, password: string) => api<TokenPair>('/auth/login', { method: 'POST', json: { loginId, password } }),
   guest: () => api<TokenPair>('/auth/guest', { method: 'POST' }),
   me: () => api<PublicUser>('/auth/me'),
-  providers: () => api<{ kakao: boolean; google: boolean }>('/auth/providers'),
+  providers: () => api<{ kakao: boolean; google: boolean; email: boolean }>('/auth/providers'),
   oauthUrl: (p: 'kakao' | 'google') => api<{ url: string }>(`/auth/oauth/${p}/url`),
   oauthCallback: (p: 'kakao' | 'google', code: string, state: string) => api<TokenPair>(`/auth/oauth/${p}/callback`, { method: 'POST', json: { code, state } }),
   logout: (refreshToken: string) => api<void>('/auth/logout', { method: 'POST', json: { refreshToken } }),
@@ -192,12 +192,19 @@ export const notifyApi = {
 export const accountApi = {
   voiceModel: () => api<{ enabled: boolean; recordings: number; goal: number; retentionDays: number; calibration: any }>('/me/voice-model'),
   setVoiceModel: (enabled: boolean) => api<{ enabled: boolean; recordings: number; goal: number; retentionDays: number; calibration: any }>('/me/voice-model', { method: 'POST', json: { enabled } }),
-  identities: () => api<{ loginId: string | null; providers: { provider: 'KAKAO' | 'GOOGLE'; email: string | null; createdAt: string }[] }>('/me/identities'),
+  identities: () => api<{ loginId: string | null; email: string | null; emailVerified: boolean; providers: { provider: 'KAKAO' | 'GOOGLE'; email: string | null; createdAt: string }[] }>('/me/identities'),
   linkUrl: (p: 'kakao' | 'google') => api<{ url: string }>(`/auth/oauth/${p}/url?link=1`),
   exportZip: async (audio: boolean) => {
     const res = await api<Response>(`/me/export${audio ? '?audio=1' : ''}`, { raw: true });
     return res.blob();
   },
+};
+
+export const emailApi = {
+  set: (email: string) => api<{ sent: boolean; email: string }>('/auth/email', { method: 'POST', json: { email } }),
+  verify: (token: string) => api<{ verified: boolean; email: string }>('/auth/email/verify', { method: 'POST', json: { token } }),
+  forgot: (identifier: string) => api<{ sent: boolean }>('/auth/password/forgot', { method: 'POST', json: { identifier } }),
+  reset: (token: string, next: string, loginId?: string) => api<{ reset: boolean; loginId: string }>('/auth/password/reset', { method: 'POST', json: { token, next, loginId } }),
 };
 
 export const passwordApi = {

@@ -121,6 +121,9 @@ model User {
   baseline     Json?
   // 내 목소리에 맞추기: 내 녹음에서 계산한 개인 기준 (모음 위치·바람 높이)
   calibration  Json?
+  // 이메일: 인증한 주소만 비밀번호 재설정에 쓴다
+  email           String?   @unique @db.VarChar(254)
+  emailVerifiedAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -140,6 +143,7 @@ model User {
   reviewedItems LessonItem[] @relation("ItemReviewer")
   pushSubs      PushSubscription[]
   scriptDocs    ScriptDoc[]
+  emailTokens   EmailToken[]
   scriptRuns    ScriptRun[]
 }
 
@@ -462,4 +466,24 @@ model ScriptRun {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+enum EmailTokenKind {
+  VERIFY
+  RESET
+}
+
+/// 이메일 인증 · 비밀번호 재설정 링크 (토큰 원문은 저장하지 않고 해시만)
+model EmailToken {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @db.Uuid
+  kind      EmailTokenKind
+  email     String         @db.VarChar(254)
+  tokenHash String         @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
 }

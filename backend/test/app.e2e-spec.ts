@@ -27,6 +27,8 @@ const { AppModule } = require('../src/app.module');
 const { configureApp } = require('../src/main');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { PrismaService } = require('../src/common/prisma.service');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { MailService } = require('../src/common/mail.service');
 
 function wav(seconds = 1, rate = 16000) {
   const n = Math.floor(seconds * rate);
@@ -131,8 +133,41 @@ describe('말랑말랑 API (e2e)', () => {
       expect((await http().post('/api/auth/refresh').send({ refreshToken: r.body.refreshToken })).status).toBe(401);
       expect((await http().post('/api/auth/login').send({ loginId: 'pw_user', password: 'newpass123' })).status).toBe(200);
     });
+    it('이메일 인증 → 이메일로 비밀번호 다시 만들기 (계정이 있는지는 알려주지 않음)', async () => {
+      const outbox = app.get(MailService).outbox as { to: string; text: string }[];
+      const tokenIn = (m: { text: string }) => /token=([\w-]+)/.exec(m.text)![1];
+      const r = await signup('mailuser1');
+      const auth = { Authorization: `Bearer ${r.body.accessToken}` };
+      expect((await http().post('/api/auth/email').set(auth).send({ email: 'not-an-email' })).status).toBe(400);
+      expect((await http().post('/api/auth/email').set(auth).send({ email: 'Mail.User@Example.com' })).status).toBe(201);
+      const verifyMail = outbox[outbox.length - 1];
+      expect(verifyMail.to).toBe('mail.user@example.com');
+      // 인증 전에는 재설정 메일이 가지 않는다
+      const before = outbox.length;
+      expect((await http().post('/api/auth/password/forgot').send({ identifier: 'mailuser1' })).body).toEqual({ sent: true });
+      expect(outbox.length).toBe(before);
+      expect((await http().post('/api/auth/email/verify').send({ token: tokenIn(verifyMail) })).body.verified).toBe(true);
+      expect((await http().post('/api/auth/email/verify').send({ token: tokenIn(verifyMail) })).status).toBe(400); // 한 번만
+      const ids = await http().get('/api/me/identities').set(auth);
+      expect(ids.body).toMatchObject({ email: 'mail.user@example.com', emailVerified: true });
+      // 없는 계정도 같은 응답
+      expect((await http().post('/api/auth/password/forgot').send({ identifier: 'nobody-here' })).body).toEqual({ sent: true });
+      expect(outbox.length).toBe(before);
+      await http().post('/api/auth/password/forgot').send({ identifier: 'MAIL.USER@example.com' });
+      const resetMail = outbox[outbox.length - 1];
+      expect(resetMail.text).toContain('/reset-password?token=');
+      expect((await http().post('/api/auth/password/reset').send({ token: tokenIn(resetMail), next: 'short' })).status).toBe(400);
+      expect((await http().post('/api/auth/password/reset').send({ token: tokenIn(resetMail), next: 'brandnew99' })).status).toBe(200);
+      expect((await http().post('/api/auth/password/reset').send({ token: tokenIn(resetMail), next: 'again12345' })).status).toBe(400);
+      expect((await http().post('/api/auth/refresh').send({ refreshToken: r.body.refreshToken })).status).toBe(401); // 다른 기기 끊김
+      expect((await http().post('/api/auth/login').send({ loginId: 'mailuser1', password: 'brandnew99' })).status).toBe(200);
+      // 다른 계정은 이미 인증된 주소를 가져갈 수 없다
+      const other = await signup('mailuser2');
+      expect((await http().post('/api/auth/email').set('Authorization', `Bearer ${other.body.accessToken}`).send({ email: 'mail.user@example.com' })).status).toBe(409);
+      expect((await http().get('/api/auth/providers')).body.email).toBe(true);
+    });
     it('카카오·구글 키가 없으면 준비 중', async () => {
-      expect((await http().get('/api/auth/providers')).body).toEqual({ kakao: false, google: false });
+      expect((await http().get('/api/auth/providers')).body).toEqual({ kakao: false, google: false, email: true });
       expect((await http().get('/api/auth/oauth/kakao/url')).status).toBe(503);
     });
   });
@@ -381,7 +416,7 @@ describe('말랑말랑 API (e2e)', () => {
     });
     it('연결된 로그인 방법', async () => {
       const r = await http().get('/api/me/identities').set('Authorization', `Bearer ${t}`);
-      expect(r.body).toEqual({ loginId: 'full_user', providers: [] });
+      expect(r.body).toEqual({ loginId: 'full_user', email: null, emailVerified: false, providers: [] });
     });
   });
 });
