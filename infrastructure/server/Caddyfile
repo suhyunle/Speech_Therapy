@@ -1,0 +1,21 @@
+# 한 주소로 웹과 API를 같이 낸다. HTTPS 인증서는 Caddy가 Let's Encrypt에서 자동으로 받는다.
+# (마이크는 HTTPS에서만 켜져서, 실제 서버에는 반드시 HTTPS가 필요하다)
+{$DOMAIN} {
+	encode zstd gzip
+	# 녹음·원고 업로드 (원고 녹음 최대 15분)
+	request_body {
+		max_size 60MB
+	}
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "microphone=(self), camera=(self)"
+	}
+}

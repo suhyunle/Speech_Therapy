@@ -39,3 +39,28 @@ docker compose --env-file .env up --build
 ## 마이그레이션
 - 평소: `cd backend && npx prisma migrate dev --name <이름>`
 - 스키마 엔진 바이너리를 받을 수 없는 환경: `python3 database/gen_migration.py backend/prisma/schema.prisma` 로 SQL 생성 (Prisma 명명 규칙 그대로).
+
+
+## 무료 서버에 올리기 (Oracle Cloud Always Free)
+음성 인식 워커가 메모리를 1GB 넘게 써서, 512MB짜리 무료 호스팅(Render·Koyeb 등)에는 전체가 들어가지 않는다.
+Oracle Cloud Always Free의 ARM 서버(2 OCPU · 12GB, 2026년 6월부터 이 크기)는 DB·Redis·API·워커·웹을 한 대에 다 올릴 수 있다.
+
+1. **계정 만들기**: cloud.oracle.com → Free Tier 가입 (카드 확인은 하지만 무료 범위 안에서는 청구 안 됨). 홈 리전은 바꿀 수 없으니 가까운 곳(서울·춘천)으로.
+2. **서버 만들기**: Compute → Instances → Create
+   - Image: Ubuntu 24.04 · Shape: `VM.Standard.A1.Flex` 2 OCPU / 12 GB
+   - SSH 키 내려받기, 부트 볼륨 50GB 이상(무료 200GB까지)
+   - "Out of capacity"가 뜨면 다른 가용 도메인(AD)을 고르거나 시간을 두고 다시 시도
+3. **포트 열기**: 인스턴스 → Subnet → Security List → Ingress 규칙에 TCP 80, 443 (원본 0.0.0.0/0) 추가. 서버 안쪽 iptables는 setup.sh가 연다.
+4. **주소(도메인)**: 마이크는 HTTPS에서만 켜져서 주소가 필요하다.
+   - 무료: duckdns.org 에 로그인 → 하위 도메인 만들고 서버 공인 IP 입력 (예: `malang.duckdns.org`)
+   - 아무것도 없으면 setup.sh가 `1-2-3-4.sslip.io` 같은 IP 주소를 쓴다 (인증서 발급 한도에 걸릴 수 있음)
+5. **설치**: SSH 접속 후
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/suhyunle/Speech_Therapy/main/infrastructure/server/setup.sh | bash -s -- malang.duckdns.org
+   ```
+   Docker 설치 → 포트 열기 → 코드 받기 → 비밀값(.env) 자동 생성 → 빌드·실행. 처음 빌드는 음성 모델 받기와 ARM용 Praat 컴파일 때문에 10~20분.
+   끝나면 관리자 비밀번호를 출력한다. **`.env`(특히 RECORDING_KEY)는 꼭 따로 백업** — 잃어버리면 저장된 녹음을 열 수 없다.
+6. **업데이트**: 서버에서 `cd ~/Speech_Therapy && git pull && sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env up -d --build`
+
+구성: Caddy(80·443, 인증서 자동) → `/api/*` 는 API, 나머지는 웹. DB·Redis·녹음은 Docker 볼륨에 남는다.
+주의: Oracle은 무료 계정의 서버가 오래 거의 놀면(CPU 사용이 아주 낮으면) 회수할 수 있다고 안내한다. 실제 사용자가 생기면 유료 전환(Pay As You Go, 무료 범위는 그대로)을 고려.

@@ -76,5 +76,5 @@ cd frontend && npx vitest run                                                   
 | 진동 | `navigator.vibrate` 지원 브라우저(안드로이드)만. 아이폰·데스크톱은 기호만 움직임 |
 | 오프라인 | 진단·연습 녹음 화면은 문항을 서버에서 받아야 해서 처음엔 인터넷 필요(녹음 자체는 끊겨도 보관). 글꼴은 쓸 때 저장해서, 처음 보는 글자는 기본 글꼴로 보일 수 있음 |
 | 내 글로 연습 | 긴 녹음은 받아쓰기 정확도가 떨어질 수 있음. 손글씨 사진은 잘 못 읽음 |
-| Docker | 파일 작성, 이 환경에 Docker 데몬이 없어 `compose up` 미시험 |
+| Docker · 서버 | `docker-compose.prod.yml`(Caddy HTTPS) · `infrastructure/server/setup.sh`(Oracle 무료 서버 한 번에 세우기) 작성. 이 환경에 Docker가 없어 실제로 띄워 보지는 못함 → [배포 문서](docs/deployment.md) |
 | 문항 검토 | 보드 확정본도 언어재활사 검토 전. 앱이 채운 단어는 '검토 전' |

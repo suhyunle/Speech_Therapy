@@ -38,7 +38,8 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
   if (!sameOrigin && !CACHEABLE_API.test(url.pathname)) return;
-  if (sameOrigin && url.pathname.startsWith('/api/')) return;
+  // 같은 주소의 /api (실제 서버: Caddy 뒤) 는 소리 레슨·오늘의 학습 같은 읽기만 저장한다
+  if (sameOrigin && url.pathname.startsWith('/api/') && !CACHEABLE_API.test(url.pathname)) return;
   // 이름에 해시가 붙은 JS·CSS·글꼴은 바뀌지 않으니 저장된 것 먼저
   if (sameOrigin && url.pathname.startsWith('/_next/static/')) {
     e.respondWith(

@@ -1,0 +1,36 @@
+# 실제 서버용 덧붙임: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env up -d --build
+# - 웹·API 포트는 밖에 열지 않고 Caddy(80·443, HTTPS 자동)만 연다
+# - 같은 주소의 /api 로 API를 낸다 → PUBLIC_API_URL=https://도메인/api
+services:
+  db:
+    restart: unless-stopped
+  redis:
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis-data:/data]
+  api:
+    restart: unless-stopped
+    ports: !reset []
+  worker:
+    restart: unless-stopped
+    environment:
+      ASR_THREADS: ${ASR_THREADS:-2}
+  web:
+    restart: unless-stopped
+    ports: !reset []
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [web, api]
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
+    volumes:
+      - ./infrastructure/server/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  redis-data:
+  caddy-data:
+  caddy-config:
