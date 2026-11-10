@@ -3,7 +3,7 @@
 - 기준 주소: `http://localhost:4000/api` · Swagger UI: `/api/docs` · OpenAPI JSON: [`openapi.json`](openapi.json) (실행 중인 서버에서 생성)
 - 인증: `Authorization: Bearer <accessToken>` (15분). 만료되면 `POST /auth/refresh`. SSE는 `?access_token=`.
 - 오류 형식: `{ "statusCode": 401, "message": "아이디 또는 비밀번호가 맞지 않아요", "code": "BAD_CREDENTIALS" }`
-- 엔드포인트 83개
+- 엔드포인트 75개
 
 | 메서드 | 경로 | 권한 | 하는 일 |
 |---|---|---|---|
