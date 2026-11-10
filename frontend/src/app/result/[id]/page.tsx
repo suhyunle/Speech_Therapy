@@ -146,6 +146,14 @@ function Result() {
                 : `받아쓰기는 ${r.acousticChecks.map((c) => c.symbol).join('·')}으로 들었지만, 바람 소리 중심이 ${r.acousticChecks[0].centroidKHz}kHz로 낮았어요(ㅅ 목표 6~8.5). ‘쉬’처럼 났을 수 있어 맞다고 정하지 않았어요.`}
             </p>
           )}
+          {r.phoneCheck && (r.phoneCheck.disagree.length > 0 || r.phoneCheck.agree.length > 0) && (
+            <p className="rounded-xl bg-tint px-3 py-2 text-xs leading-relaxed text-sub">
+              <b>소리 하나씩 다시 들어 봤어요 · </b>
+              {r.phoneCheck.disagree.length > 0 &&
+                `받아쓰기는 ${r.phoneCheck.disagree.map((d) => d.symbol).join('·')}으로 들었지만, 소리 하나씩 들으면 ${r.phoneCheck.disagree.map((d) => `${d.symbol}이 ${d.heardAs}`).join(', ')}처럼 들렸어요. 둘이 달라서 맞다고 정하지 않았어요. `}
+              {r.phoneCheck.agree.length > 0 && `${r.phoneCheck.agree.map((d) => `${d.symbol}이 ${d.heardAs}`).join(', ')}처럼 들린 건 소리 하나씩 들어도 같았어요.`}
+            </p>
+          )}
           {unsure.length > 0 && (
             <button type="button" onClick={() => setWhy(true)} className="self-start text-xs font-bold text-brand-dark">
               {unsure.map((o) => o.target?.symbol).join('·')}은 왜 ‘확실하지 않음’이에요? →

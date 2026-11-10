@@ -55,7 +55,9 @@ export interface Op {
   got: Phoneme | null;
   type: OpType;
   /** 소리를 직접 재서 판정을 보류한 이유 (no_hiss: 바람 소리 거의 없음, low_hiss: 바람이 낮아 ‘쉬’ 쪽) */
-  reason?: 'no_hiss' | 'low_hiss';
+  reason?: 'no_hiss' | 'low_hiss' | 'phone_disagree';
+  /** 소리 단위(음소) 모델이 들은 짝 소리 */
+  phoneHeard?: string;
 }
 export interface AnalysisResult {
   target: string;
@@ -110,6 +112,7 @@ export interface AnalysisResult {
     holdSec?: number;
     reason?: string;
   } | null;
+  phoneCheck?: { model: string; checked: number; disagree: { symbol: string; syl: number; heardAs: string }[]; agree: { symbol: string; syl: number; heardAs: string }[] };
   acousticChecks?: { symbol: string; syl: number; reason: 'no_hiss' | 'low_hiss'; hissSec: number; centroidKHz: number | null }[];
   vowelPoint?: { f1: number; f2: number; target: string | null; nearest: string; targets: Record<string, [number, number]>; set: string };
 }

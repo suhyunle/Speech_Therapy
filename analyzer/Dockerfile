@@ -10,5 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 RUN mkdir -p /models && curl -sSL https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-korean-2024-06-24.tar.bz2 \
     | tar xj -C /models && rm -f /models/sherpa-onnx-zipformer-korean-2024-06-24/*epoch-99-avg-1.onnx
 ENV ASR_MODEL_DIR=/models/sherpa-onnx-zipformer-korean-2024-06-24
+# 소리 단위(음소) 모델 Allosaurus uni2005 (GPL-3.0) — torch 없이 쓰려고 npz 로 바꾼 뒤 원본을 지운다
+COPY scripts ./scripts
+RUN mkdir -p /models/allosaurus && curl -sSL https://github.com/xinjli/allosaurus/releases/download/v1.0/uni2005.tar.gz | tar xz -C /models/allosaurus \
+    && python scripts/convert_allosaurus.py /models/allosaurus/uni2005 && rm -f /models/allosaurus/uni2005/model.pt
+ENV PHONE_MODEL_DIR=/models/allosaurus/uni2005
 COPY malang_analyzer ./malang_analyzer
 CMD ["python", "-m", "malang_analyzer.worker"]

@@ -124,3 +124,7 @@
 받아쓰기가 ㅅ·ㅆ을 맞게 들었어도 녹음의 바람 소리가 거의 없으면(`no_hiss`) 또는 중심이 4kHz보다 낮으면(`low_hiss`, ㅣ·ㅑ 등 앞은 제외) 해당 `ops[].type`을 `unsure`로 바꾸고 `ops[].reason`에 이유를 남긴다.
 `{ "symbol": "ㅅ", "syl": 0, "reason": "no_hiss", "hissSec": 0.0, "centroidKHz": null }`
 `GET /plan/today` 에 `vowelTargets`(내 목소리에 맞춘 모음 목표, 없으면 null). `GET /auth/providers` 에 `email`(메일 발송 가능). `GET /me/identities` 에 `email`·`emailVerified`.
+
+## 소리 단위 교차 확인 `result.phoneCheck`
+`{ "model": "allosaurus-uni2005", "checked": 13, "disagree": [{ "symbol": "ㅋ", "syl": 2, "heardAs": "ㄱ" }], "agree": [] }`
+`disagree` 에 든 소리는 `ops[].type` 이 `unsure`, `ops[].reason` 이 `phone_disagree`, `ops[].phoneHeard` 에 짝 소리.

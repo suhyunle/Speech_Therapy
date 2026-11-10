@@ -8,6 +8,8 @@ from . import audio as au
 from . import feedback as fb
 from .pronounce import phonemes, standard_pronunciation, syllable_texts
 from .recognizer import get_recognizer
+from . import phones as ph
+from .pronounce import to_syllables
 
 HISS_SOUNDS = {"ㅅ", "ㅆ"}
 VOWEL_ONLY = set("아어오우으이에애야여요유와워의")
@@ -123,8 +125,12 @@ def analyze(
     # 소리를 직접 재서 받아쓰기 결과를 교차 확인 (받아쓰기가 아는 단어로 맞춰 적는 문제 완화)
     if cmp:
         checks = acoustic_checks(cmp["ops"], m.get("hiss"), target_pron)
-        if checks:
-            result["acousticChecks"] = checks
+        pc = phone_cross_check(x, cmp["ops"], target_pron)
+        if pc is not None:
+            result["phoneCheck"] = pc
+        if checks or (pc and pc["disagree"]):
+            if checks:
+                result["acousticChecks"] = checks
             result["soundVerdicts"] = al.sound_verdicts(cmp["ops"], target_sounds)
             verdicts = [v for v in result["soundVerdicts"].values() if v is not None]
             if result["passed"] is not None:
@@ -255,3 +261,37 @@ def acoustic_checks(ops: list[dict], hiss: dict | None, target_pron: str) -> lis
         o["reason"] = reason
         out.append({"symbol": o["target"]["symbol"], "syl": o["target"]["syl"], "reason": reason, "hissSec": sec, "centroidKHz": khz})
     return out
+
+
+def phone_cross_check(x: np.ndarray, ops: list[dict], target_pron: str) -> dict | None:
+    """소리 단위 모델(Allosaurus)로 목표 소리마다 한 번 더 확인한다.
+    받아쓰기는 ‘같음’인데 소리 단위로는 짝 소리(ㄱ↔ㅋ, ㄷ↔ㅌ, ㅂ↔ㅍ, ㅅ↔ㄷ)로 뚜렷하게 들렸으면 ‘확실하지 않음’으로 보류한다.
+    받아쓰기가 ‘바뀜’이라고 한 소리를 소리 단위로도 같게 들었으면 근거로 붙인다(판정은 그대로)."""
+    model = ph.get_phone_model()
+    if model is None or len(x) < 16000 * 0.25:
+        return None
+    phs = phonemes(target_pron)
+    ws = {i for i, sy in enumerate(to_syllables(target_pron)) if i == 0 or sy.space_before}
+    try:
+        res = ph.check_phonemes(x, phs, model, word_start=ws)
+    except Exception:
+        return None
+    if res is None:
+        return None
+    by_key = {(o["target"]["syl"], o["target"]["pos"]): o for o in ops if o["target"]}
+    disagree, agree = [], []
+    for r in res:
+        p = phs[r["ph"]]
+        o = by_key.get((p.syl, p.pos))
+        if not o or not r["heardAs"]:
+            continue
+        if o["type"] in ("same", "allowed"):
+            o["type"] = "unsure"
+            o["reason"] = "phone_disagree"
+            o["phoneHeard"] = r["heardAs"]
+            disagree.append({"symbol": p.symbol, "syl": p.syl, "heardAs": r["heardAs"]})
+        elif o["type"] == "sub" and o.get("got"):
+            o["phoneHeard"] = r["heardAs"]
+            if ph.ONSET.get(o["got"]["symbol"], "?") == ph.ONSET.get(r["heardAs"], "!"):
+                agree.append({"symbol": p.symbol, "syl": p.syl, "heardAs": r["heardAs"]})
+    return {"model": "allosaurus-uni2005", "checked": len(res), "disagree": disagree, "agree": agree}

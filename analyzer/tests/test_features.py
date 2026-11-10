@@ -1,4 +1,5 @@
 import io, os, shutil
+from pathlib import Path
 import numpy as np, pytest, soundfile as sf
 from malang_analyzer import audio as au, script as sc
 from malang_analyzer.pipeline import analyze, evaluate_exercise
@@ -126,3 +127,30 @@ def test_hiss_meter_on_real_noise():
     x = np.concatenate([gap(0.3), hiss, tone(200, 0.3), gap(0.3)])
     h = au.hiss_meter(x)
     assert h["hissSec"] >= 0.2 and h["centroidKHz"] > 6
+
+
+import pytest
+from malang_analyzer import phones as ph_mod
+_PM = ph_mod.get_phone_model()
+
+
+@pytest.mark.skipif(_PM is None, reason="음소 모델 없음 (models/allosaurus/uni2005)")
+def test_phone_model_on_real_speech():
+    import soundfile as sf
+    from malang_analyzer.pronounce import phonemes, to_syllables
+    wav = Path(os.environ.get("ASR_MODEL_DIR", "../models/sherpa-onnx-zipformer-korean-2024-06-24")) / "test_wavs" / "2.wav"
+    if not wav.exists():
+        pytest.skip("시험 녹음 없음")
+    x, _ = sf.read(wav, dtype="float32")
+    good = "부모가 저지르는 큰 실수 중 하나는 자기 아이를 다른 지 바이와 비교하는 거시다"
+    ws = lambda p: {i for i, s in enumerate(to_syllables(p)) if i == 0 or s.space_before}
+    ok = ph_mod.check_phonemes(x, phonemes(good), word_start=ws(good))
+    assert ok and not [c for c in ok if c["heardAs"]]  # 바른 발음은 걸리지 않는다
+    bad = good.replace("실수", "실뚜").replace("부모가", "부모카")
+    r = ph_mod.check_phonemes(x, phonemes(bad), word_start=ws(bad))
+    assert {c["heardAs"] for c in r if c["heardAs"]} >= {"ㅅ", "ㄱ"}  # 목표와 다르게 말한 소리는 잡는다
+
+
+def test_force_align_handles_short_input():
+    lp = np.log(np.full((2, 5), 0.2))
+    assert ph_mod.force_align(lp, ["<blk>", "k", "a", "s", "i"], [{"cls": "K"}, {"cls": "A"}, {"cls": "S"}]) is None
