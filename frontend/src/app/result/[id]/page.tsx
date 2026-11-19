@@ -146,6 +146,16 @@ function Result() {
                 : `받아쓰기는 ${r.acousticChecks.map((c) => c.symbol).join('·')}으로 들었지만, 바람 소리 중심이 ${r.acousticChecks[0].centroidKHz}kHz로 낮았어요(ㅅ 목표 6~8.5). ‘쉬’처럼 났을 수 있어 맞다고 정하지 않았어요.`}
             </p>
           )}
+          {r.rivalCheck && (r.rivalCheck.changed.length > 0 || r.rivalCheck.rescued.length > 0 || r.rivalCheck.agree.length > 0) && (
+            <p className="rounded-xl bg-tint px-3 py-2 text-xs leading-relaxed text-sub">
+              <b>소리 하나씩 따져 봤어요 · </b>
+              {r.rivalCheck.changed.length > 0 &&
+                `받아쓰기는 아는 단어로 맞춰 적었지만, 소리만 따지면 ${r.rivalCheck.changed.map((d) => `${d.symbol}이 ${d.heardAs}`).join(', ')}에 더 가까웠어요. `}
+              {r.rivalCheck.rescued.length > 0 &&
+                `받아쓰기는 ${r.rivalCheck.rescued.map((d) => `${d.symbol}을 ${d.asrHeard}`).join(', ')}로 적었지만, 소리만 따지면 목표 소리에 더 가까워서 정하지 않았어요. `}
+              {r.rivalCheck.agree.length > 0 && `${r.rivalCheck.agree.map((d) => `${d.symbol}이 ${d.heardAs}`).join(', ')}처럼 들린 건 소리만 따져도 같았어요.`}
+            </p>
+          )}
           {r.phoneCheck && (r.phoneCheck.disagree.length > 0 || r.phoneCheck.agree.length > 0) && (
             <p className="rounded-xl bg-tint px-3 py-2 text-xs leading-relaxed text-sub">
               <b>소리 하나씩 다시 들어 봤어요 · </b>

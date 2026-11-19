@@ -154,3 +154,24 @@ def test_phone_model_on_real_speech():
 def test_force_align_handles_short_input():
     lp = np.log(np.full((2, 5), 0.2))
     assert ph_mod.force_align(lp, ["<blk>", "k", "a", "s", "i"], [{"cls": "K"}, {"cls": "A"}, {"cls": "S"}]) is None
+
+
+from malang_analyzer import rnnt_score as rs_mod
+
+
+def test_rivals_of_makes_minimal_pairs():
+    r = {c[4] for c in rs_mod.rivals_of("가다")}
+    assert {"까다", "카다", "가따", "가타", "가사"} <= r and "가다" not in r
+    assert rs_mod.join_syllable(*rs_mod.split_syllable("닭")) == "닭"
+
+
+@pytest.mark.skipif(rs_mod.get_scorer() is None, reason="받아쓰기 모델 없음")
+def test_rival_scoring_on_real_speech():
+    wav = Path(os.environ.get("ASR_MODEL_DIR", "../models/sherpa-onnx-zipformer-korean-2024-06-24")) / "test_wavs" / "2.wav"
+    if not wav.exists():
+        pytest.skip("시험 녹음 없음")
+    x, _ = sf.read(wav, dtype="float32")
+    good = "부모가 저지르는 큰 실수 중 하나는 자기 아이를 다른 집 아이와 비교하는 것이다"
+    assert rs_mod.judge_words(x, good) == []  # 바른 발음은 걸리지 않는다
+    bad = rs_mod.judge_words(x, good.replace("부모가", "부모카").replace("실수", "실뚜"))
+    assert ("부모카", "ㄱ") in {(b["word"], b["heardAs"]) for b in bad} and "실뚜" in {b["word"] for b in bad}

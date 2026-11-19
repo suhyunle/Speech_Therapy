@@ -9,6 +9,7 @@ from . import feedback as fb
 from .pronounce import phonemes, standard_pronunciation, syllable_texts
 from .recognizer import get_recognizer
 from . import phones as ph
+from . import rnnt_score as rs
 from .pronounce import to_syllables
 
 HISS_SOUNDS = {"ㅅ", "ㅆ"}
@@ -125,10 +126,16 @@ def analyze(
     # 소리를 직접 재서 받아쓰기 결과를 교차 확인 (받아쓰기가 아는 단어로 맞춰 적는 문제 완화)
     if cmp:
         checks = acoustic_checks(cmp["ops"], m.get("hiss"), target_pron)
-        pc = phone_cross_check(x, cmp["ops"], target_pron)
+        rc = rival_cross_check(x, cmp["ops"], target_text)
+        if rc is not None:
+            result["rivalCheck"] = rc
+        # 한국어 모델로 짝 비교를 못 하면(모델 없음 등) 다국어 음소 모델로라도 확인
+        pc = phone_cross_check(x, cmp["ops"], target_pron) if rc is None else None
         if pc is not None:
             result["phoneCheck"] = pc
-        if checks or (pc and pc["disagree"]):
+        if rc and (rc["changed"] or rc["rescued"]):
+            cmp["matched"] = sum(1 for o in cmp["ops"] if o["target"] and o["type"] in ("same", "allowed"))
+        if checks or (pc and pc["disagree"]) or (rc and (rc["changed"] or rc["rescued"])):
             if checks:
                 result["acousticChecks"] = checks
             result["soundVerdicts"] = al.sound_verdicts(cmp["ops"], target_sounds)
@@ -295,3 +302,54 @@ def phone_cross_check(x: np.ndarray, ops: list[dict], target_pron: str) -> dict 
             if ph.ONSET.get(o["got"]["symbol"], "?") == ph.ONSET.get(r["heardAs"], "!"):
                 agree.append({"symbol": p.symbol, "syl": p.syl, "heardAs": r["heardAs"]})
     return {"model": "allosaurus-uni2005", "checked": len(res), "disagree": disagree, "agree": agree}
+
+
+def rival_cross_check(x: np.ndarray, ops: list[dict], target_text: str) -> dict | None:
+    """한국어 받아쓰기 모델로 ‘목표 낱말’과 ‘소리 하나 바꾼 짝 낱말’의 점수를 직접 비교한다 (rnnt_score.judge_words).
+    받아쓰기가 아는 단어로 맞춰 적어서 ‘같음’이 됐어도, 짝 소리가 내부 언어모델 습관을 빼고도 확실히(3 이상) 더 그럴듯하면 ‘바뀜’으로 고친다."""
+    sc = rs.get_scorer()
+    if sc is None or len(x) < 16000 * 0.25:
+        return None
+    try:
+        gaps: dict = {}
+        found = rs.judge_words(x, target_text, sc, gaps=gaps)
+    except Exception:
+        return None
+    if found is None:
+        return None
+    words = [w for w in target_text.replace(".", " ").replace("?", " ").replace("!", " ").replace(",", " ").split() if w]
+    starts = np.cumsum([0] + [len(w) for w in words]).tolist()
+    by_key = {(o["target"]["syl"], o["target"]["pos"]): o for o in ops if o["target"]}
+    changed, agree = [], []
+    for f in found:
+        g = starts[f["wordIndex"]] + f["syl"]
+        o = by_key.get((g, f["part"]))
+        if not o or o["target"]["symbol"] != f["target"]:
+            continue  # 표기와 발음이 달라 짝을 맞출 수 없는 소리(연음 등)는 건드리지 않는다
+        item = {"symbol": f["target"], "syl": g, "heardAs": f["heardAs"], "gap": f["gap"]}
+        if o["type"] in ("same", "allowed"):
+            o["type"] = "sub"
+            o["got"] = {**o["target"], "symbol": f["heardAs"]}
+            o["reason"] = "rival_score"
+            changed.append(item)
+        elif o["type"] == "sub" and o.get("got", {}).get("symbol") == f["heardAs"]:
+            agree.append(item)
+    # 반대로, 받아쓰기는 ‘바뀜’인데 그 짝 소리가 목표보다 확실히 덜 그럴듯하면 받아쓰기 쪽 실수일 수 있다 → ‘확실하지 않음’
+    rescued = []
+    loc = {}
+    for wi in range(len(words)):
+        for i in range(len(words[wi])):
+            loc[starts[wi] + i] = (wi, i)
+    for o in ops:
+        if o["type"] != "sub" or not o.get("got") or not o["target"] or o.get("reason") == "rival_score":
+            continue
+        g = o["target"]["syl"]
+        if g not in loc:
+            continue
+        wi, i = loc[g]
+        gap = gaps.get((wi, i, o["target"]["pos"], o["got"]["symbol"]))
+        if gap is not None and gap < -rs.MARGIN:
+            o["type"] = "unsure"
+            o["reason"] = "rival_rescue"
+            rescued.append({"symbol": o["target"]["symbol"], "syl": g, "asrHeard": o["got"]["symbol"], "gap": gap})
+    return {"model": "zipformer-korean-rival", "words": len(words), "changed": changed, "agree": agree, "rescued": rescued}

@@ -128,3 +128,10 @@
 ## 소리 단위 교차 확인 `result.phoneCheck`
 `{ "model": "allosaurus-uni2005", "checked": 13, "disagree": [{ "symbol": "ㅋ", "syl": 2, "heardAs": "ㄱ" }], "agree": [] }`
 `disagree` 에 든 소리는 `ops[].type` 이 `unsure`, `ops[].reason` 이 `phone_disagree`, `ops[].phoneHeard` 에 짝 소리.
+
+## 짝 낱말 점수 비교 `result.rivalCheck`
+`{ "model": "zipformer-korean-rival", "words": 1, "changed": [], "agree": [{ "symbol": "ㄸ", "syl": 0, "heardAs": "ㄷ", "gap": 11.41 }], "rescued": [] }`
+- `changed`: 받아쓰기는 같다고 했지만 짝이 더 그럴듯해서 `sub` 로 고친 소리 (`ops[].reason = "rival_score"`)
+- `agree`: 받아쓰기가 바뀌었다고 한 것을 짝 비교도 같게 본 소리
+- `rescued`: 받아쓰기는 바뀌었다고 했지만 그 짝이 목표보다 확실히 덜 그럴듯해서 `unsure` 로 둔 소리 (`reason = "rival_rescue"`)
+한국어 모델을 쓸 수 없으면 대신 `phoneCheck`(Allosaurus) 가 붙는다.
